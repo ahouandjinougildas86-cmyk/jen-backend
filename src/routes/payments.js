@@ -98,5 +98,17 @@ router.post('/webhook', async (req, res, next) => {
     next(err)
   }
 })
-
+const transaction = await FedaPay.Transaction.create({
+  description: `Billet JEN - ${fname} ${lname}`,
+  amount: amount || 3000,
+  currency: { iso: 'XOF' },
+  callback_url: `${process.env.FRONTEND_URL}?status={status}`,  // retour frontend
+  customer: {
+    firstname: fname,
+    lastname:  lname,
+    email:     email,
+    phone_number: { number: phone, country: 'BJ' }
+  },
+  custom_metadata: { order_id: order.id }  // ← ajoute cette ligne
+})
 module.exports = router

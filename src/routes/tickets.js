@@ -100,4 +100,21 @@ router.post('/verify', async (req, res, next) => {
   }
 })
 
+// GET /api/tickets/by-order/:order_id
+router.get('/by-order/:order_id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.*, o.fname, o.lname, o.email, o.pm, o.amount
+       FROM tickets t
+       JOIN orders o ON o.id = t.order_id
+       WHERE t.order_id = $1`,
+      [req.params.order_id]
+    )
+    if (!rows.length) return res.status(404).json({ error: 'Ticket pas encore généré' })
+    res.json(rows[0])
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router
