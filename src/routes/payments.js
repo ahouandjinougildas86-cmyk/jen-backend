@@ -16,7 +16,6 @@ router.post('/init', async (req, res, next) => {
   }
 
   try {
-    // Créer la commande en base
     const { rows } = await pool.query(
       `INSERT INTO orders (event_id, fname, lname, email, phone, pm, amount)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -24,36 +23,31 @@ router.post('/init', async (req, res, next) => {
     )
     const order = rows[0]
 
-    // Enregistrer transaction en pending
     await pool.query(
       `INSERT INTO transactions (order_id, provider, status)
        VALUES ($1, $2, 'pending')`,
       [order.id, pm]
     )
 
-    // Créer la transaction FedaPay
     const transaction = await FedaPay.Transaction.create({
       description: `Billet JEN - ${fname} ${lname}`,
-      amount: amount || 3000,
-      currency: { iso: 'XOF' },
-      callback_url: `${process.env.BACKEND_URL}/api/payments/webhook`,
+      amount:      amount || 3000,
+      currency:    { iso: 'XOF' },
+      callback_url: `${process.env.FRONTEND_URL}?status={status}`,
       customer: {
         firstname: fname,
         lastname:  lname,
         email:     email,
-        phone_number: {
-          number:  phone,
-          country: 'BJ'
-        }
-      }
+        phone_number: { number: phone, country: 'BJ' }
+      },
+      custom_metadata: { order_id: order.id }
     })
 
-    // Générer le lien de paiement
     const token = await transaction.generateToken()
 
     res.status(201).json({
       order_id:    order.id,
-      payment_url: token.url,   // redirige le client vers FedaPay
+      payment_url: token.url,
       token:       token.token
     })
 
@@ -62,7 +56,7 @@ router.post('/init', async (req, res, next) => {
   }
 })
 
-// POST /api/payments/webhook — callback FedaPay
+// POST /api/payments/webhook
 router.post('/webhook', async (req, res, next) => {
   try {
     const event = req.body
@@ -71,7 +65,6 @@ router.post('/webhook', async (req, res, next) => {
       const ref       = event.data?.transaction?.id?.toString()
       const customRef = event.data?.transaction?.custom_metadata?.order_id
 
-      // Mettre à jour la transaction
       await pool.query(
         `UPDATE transactions
          SET status = 'paid', provider_ref = $1, raw_response = $2, updated_at = NOW()
@@ -79,13 +72,11 @@ router.post('/webhook', async (req, res, next) => {
         [ref, JSON.stringify(event), customRef]
       )
 
-      // Mettre à jour la commande
       await pool.query(
         "UPDATE orders SET status = 'paid' WHERE id = $1",
         [customRef]
       )
 
-      // Générer le ticket
       await fetch(`${process.env.BACKEND_URL}/api/tickets/create`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,17 +89,5 @@ router.post('/webhook', async (req, res, next) => {
     next(err)
   }
 })
-const transaction = await FedaPay.Transaction.create({
-  description: `Billet JEN - ${fname} ${lname}`,
-  amount: amount || 3000,
-  currency: { iso: 'XOF' },
-  callback_url: `${process.env.FRONTEND_URL}?status={status}`,  // retour frontend
-  customer: {
-    firstname: fname,
-    lastname:  lname,
-    email:     email,
-    phone_number: { number: phone, country: 'BJ' }
-  },
-  custom_metadata: { order_id: order.id }  // ← ajoute cette ligne
-})
+
 module.exports = router
