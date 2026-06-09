@@ -1,9 +1,9 @@
 require('dotenv').config()
 const express    = require('express')
 const cors       = require('cors')
-const ticketRoutes  = require('./tickets')
-const paymentRoutes = require('./payments')
-const errorHandler  = require('../middlewares/errorHandler')
+const ticketRoutes  = require('./routes/tickets')
+const paymentRoutes = require('./routes/payments')
+const errorHandler  = require('./middlewares/errorHandler')
 
 const app = express()
 
