@@ -15,7 +15,7 @@ router.post('/init', async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO orders (event_id, fname, lname, email, phone, pm, amount)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [event_id || 1, fname, lname, email, phone, pm, amount || 3000]
+      [null, fname, lname, email, phone, pm, amount || 3000]
     )
     const order = rows[0]
     await pool.query(
