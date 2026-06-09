@@ -3,6 +3,7 @@ const router   = express.Router()
 const pool     = require('../config/db')
 const FedaPay  = require('fedapay')
 
+const { FedaPay, Transaction } = require('fedapay')
 FedaPay.FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
 FedaPay.FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
@@ -23,7 +24,7 @@ router.post('/init', async (req, res, next) => {
        VALUES ($1, $2, 'pending')`,
       [order.id, pm]
     )
-    const transaction = await FedaPay.Transaction.create({
+    const transaction = await Transaction.create({
       description: `Billet JEN - ${fname} ${lname}`,
       amount:      amount || 3000,
       currency:    { iso: 'XOF' },
