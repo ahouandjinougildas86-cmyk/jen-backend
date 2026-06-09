@@ -1,14 +1,13 @@
 const express  = require('express')
 const router   = express.Router()
 const pool     = require('../config/db')
-const FedaPay  = require('fedapay')
-
 const { FedaPay, Transaction } = require('fedapay')
-FedaPay.FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
-FedaPay.FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
+
+FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
+FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
 router.post('/init', async (req, res, next) => {
-  const { fname, lname, email, phone, pm, event_id, amount } = req.body
+  const { fname, lname, email, phone, pm, amount } = req.body
   if (!fname || !lname || !email || !phone || !pm) {
     return res.status(400).json({ error: 'Champs manquants' })
   }
@@ -25,14 +24,14 @@ router.post('/init', async (req, res, next) => {
       [order.id, pm]
     )
     const transaction = await Transaction.create({
-      description: `Billet JEN - ${fname} ${lname}`,
-      amount:      amount || 3000,
-      currency:    { iso: 'XOF' },
+      description:  `Billet JEN - ${fname} ${lname}`,
+      amount:       amount || 3000,
+      currency:     { iso: 'XOF' },
       callback_url: `${process.env.FRONTEND_URL}?status={status}`,
       customer: {
-        firstname: fname,
-        lastname:  lname,
-        email:     email,
+        firstname:    fname,
+        lastname:     lname,
+        email:        email,
         phone_number: { number: phone, country: 'BJ' }
       },
       custom_metadata: { order_id: order.id }
