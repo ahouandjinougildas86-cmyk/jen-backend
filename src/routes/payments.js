@@ -43,13 +43,12 @@ router.post('/init', async (req, res) => {
       token:       token.token
     })
   } catch (err) {
-    res.status(500).json({ 
-      error: 'Erreur serveur', 
-      detail: err?.message || String(err),
-      type: typeof err,
-      keys: err ? Object.keys(err) : []
-    })
-  }
+  const fedaDetail = err?.response?.data ?? err?.message ?? String(err)
+  res.status(500).json({ 
+    error: 'Erreur serveur', 
+    detail: fedaDetail
+  })
+}
 })
 
 router.post('/webhook', async (req, res, next) => {
