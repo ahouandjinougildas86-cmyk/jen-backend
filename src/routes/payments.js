@@ -42,11 +42,14 @@ router.post('/init', async (req, res) => {
       payment_url: token.url,
       token:       token.token
     })
-  } catch (err) {
-  const fedaDetail = err?.response?.data ?? err?.message ?? String(err)
+ } catch (err) {
   res.status(500).json({ 
-    error: 'Erreur serveur', 
-    detail: fedaDetail
+    error: 'Erreur serveur',
+    message: err?.message,
+    status: err?.status,
+    errors: err?.errors,
+    httpStatus: err?.httpStatus,
+    errorMessage: err?.errorMessage
   })
 }
 })
