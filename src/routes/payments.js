@@ -24,41 +24,41 @@ router.post('/init', async (req, res) => {
       [order.id, pm]
     )
     const transaction = await Transaction.create({
-      description:  `Billet JEN - ${fname} ${lname}`,
-      amount:       amount || 3000,
-      currency:     { iso: 'XOF' },
+      description: `Billet JEN - ${fname} ${lname}`,
+      amount: amount || 3000,
+      currency: { iso: 'XOF' },
       callback_url: `${process.env.FRONTEND_URL}?status={status}`,
       customer: {
-        firstname:    fname,
-        lastname:     lname,
-        email:        email,
+        firstname: fname,
+        lastname: lname,
+        email: email,
         phone_number: { number: phone, country: 'BJ' }
       },
       custom_metadata: { order_id: order.id }
     })
     const token = await transaction.generateToken()
     res.status(201).json({
-      order_id:    order.id,
+      order_id: order.id,
       payment_url: token.url,
-      token:       token.token
+      token: token.token
     })
- } catch (err) {
-  res.status(500).json({ 
-    error: 'Erreur serveur',
-    message: err?.message,
-    status: err?.status,
-    errors: err?.errors,
-    httpStatus: err?.httpStatus,
-    errorMessage: err?.errorMessage
-  })
-}
+  } catch (err) {
+    res.status(500).json({
+      error: 'Erreur serveur',
+      message: err?.message,
+      status: err?.status,
+      errors: err?.errors,
+      httpStatus: err?.httpStatus,
+      errorMessage: err?.errorMessage
+    })
+  }
 })
 
 router.post('/webhook', async (req, res, next) => {
   try {
     const event = req.body
     if (event.name === 'transaction.approved') {
-      const ref       = event.data?.transaction?.id?.toString()
+      const ref = event.data?.transaction?.id?.toString()
       const customRef = event.data?.transaction?.custom_metadata?.order_id
       await pool.query(
         `UPDATE transactions
@@ -71,9 +71,9 @@ router.post('/webhook', async (req, res, next) => {
         [customRef]
       )
       await fetch(`${process.env.BACKEND_URL}/api/tickets/create`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ order_id: customRef })
+        body: JSON.stringify({ order_id: customRef })
       })
     }
     res.json({ received: true })
