@@ -7,7 +7,7 @@ FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
 FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
 router.post('/init', async (req, res) => {
-  const { fname, lname, email, phone, pm, amount } = req.body
+  const { fname, lname, email, phone, pm, amount, event_id } = req.body
   if (!fname || !lname || !email || !phone || !pm) {
     return res.status(400).json({ error: 'Champs manquants' })
   }
@@ -15,7 +15,7 @@ router.post('/init', async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO orders (event_id, fname, lname, email, phone, pm, amount)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [null, fname, lname, email, phone, pm, amount || 3000]
+      [event_id || 1, fname, lname, email, phone, pm, amount || 3000]
     )
     const order = rows[0]
     await pool.query(
