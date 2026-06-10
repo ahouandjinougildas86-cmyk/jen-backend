@@ -1,9 +1,16 @@
-const express  = require('express')
-const router   = express.Router()
-const pool     = require('../config/db')
+FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
+FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
+
+
+const express = require('express')
+const router = express.Router()
+const pool = require('../config/db')
 const { FedaPay, Transaction } = require('fedapay')
 
 FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
+console.log('FEDAPAY_KEY:', process.env.FEDAPAY_SECRET_KEY ? 'OK' : 'UNDEFINED')
+console.log('FEDAPAY_ENV:', process.env.FEDAPAY_ENV)
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL)
 FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
 router.post('/init', async (req, res, next) => {
@@ -24,26 +31,30 @@ router.post('/init', async (req, res, next) => {
       [order.id, pm]
     )
     const transaction = await Transaction.create({
-      description:  `Billet JEN - ${fname} ${lname}`,
-      amount:       amount || 3000,
-      currency:     { iso: 'XOF' },
+      description: `Billet JEN - ${fname} ${lname}`,
+      amount: amount || 3000,
+      currency: { iso: 'XOF' },
       callback_url: `${process.env.FRONTEND_URL}?status={status}`,
       customer: {
-        firstname:    fname,
-        lastname:     lname,
-        email:        email,
+        firstname: fname,
+        lastname: lname,
+        email: email,
         phone_number: { number: phone, country: 'BJ' }
       },
       custom_metadata: { order_id: order.id }
     })
     const token = await transaction.generateToken()
     res.status(201).json({
-      order_id:    order.id,
+      order_id: order.id,
       payment_url: token.url,
-      token:       token.token
+      token: token.token
     })
   } catch (err) {
-    next(err)
+    console.error('ERREUR/init:', err)
+    console.error('CATCH TYPE:', typeof err)
+    console.error('CATCH KEYS:', err ? Object.keys(err) : 'null/undefined')
+    next(err || new Error('Erreur inconnue FedaPay'))
+
   }
 })
 
@@ -51,7 +62,7 @@ router.post('/webhook', async (req, res, next) => {
   try {
     const event = req.body
     if (event.name === 'transaction.approved') {
-      const ref       = event.data?.transaction?.id?.toString()
+      const ref = event.data?.transaction?.id?.toString()
       const customRef = event.data?.transaction?.custom_metadata?.order_id
       await pool.query(
         `UPDATE transactions
@@ -64,9 +75,9 @@ router.post('/webhook', async (req, res, next) => {
         [customRef]
       )
       await fetch(`${process.env.BACKEND_URL}/api/tickets/create`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ order_id: customRef })
+        body: JSON.stringify({ order_id: customRef })
       })
     }
     res.json({ received: true })
