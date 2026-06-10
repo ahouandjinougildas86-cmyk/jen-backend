@@ -6,11 +6,7 @@ const { FedaPay, Transaction } = require('fedapay')
 FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
 FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
-console.log('FEDAPAY_KEY:', process.env.FEDAPAY_SECRET_KEY ? 'OK' : 'UNDEFINED')
-console.log('FEDAPAY_ENV:', process.env.FEDAPAY_ENV)
-console.log('FRONTEND_URL:', process.env.FRONTEND_URL)
-
-router.post('/init', async (req, res, next) => {
+router.post('/init', async (req, res) => {
   const { fname, lname, email, phone, pm, amount } = req.body
   if (!fname || !lname || !email || !phone || !pm) {
     return res.status(400).json({ error: 'Champs manquants' })
@@ -47,10 +43,12 @@ router.post('/init', async (req, res, next) => {
       token:       token.token
     })
   } catch (err) {
-    console.error('ERREUR /init:', err)
-    console.error('CATCH TYPE:', typeof err)
-    console.error('CATCH KEYS:', err ? Object.keys(err) : 'null/undefined')
-    next(err || new Error('Erreur inconnue FedaPay'))
+    res.status(500).json({ 
+      error: 'Erreur serveur', 
+      detail: err?.message || String(err),
+      type: typeof err,
+      keys: err ? Object.keys(err) : []
+    })
   }
 })
 
