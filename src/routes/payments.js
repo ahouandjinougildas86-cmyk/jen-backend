@@ -27,7 +27,6 @@ router.post('/init', async (req, res) => {
       description: `Billet JEN - ${fname} ${lname}`,
       amount: amount || 3000,
       currency: { iso: 'XOF' },
-      callback_url: `${process.env.FRONTEND_URL}?status={status}`,
       customer: {
         firstname: fname,
         lastname: lname,
