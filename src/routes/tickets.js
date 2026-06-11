@@ -1,6 +1,5 @@
 const express = require('express')
 const router  = express.Router()
-const { v4: uuidv4 } = require('uuid')
 const pool    = require('../config/db')
 
 // Génération du code billet
@@ -16,6 +15,23 @@ function genSeat() {
   return r + n
 }
 
+// GET /api/tickets/by-order/:order_id  ✅ EN PREMIER avant /:code
+router.get('/by-order/:order_id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.*, o.fname, o.lname, o.email, o.pm, o.amount
+       FROM tickets t
+       JOIN orders o ON o.id = t.order_id
+       WHERE t.order_id = $1`,
+      [req.params.order_id]
+    )
+    if (!rows.length) return res.status(404).json({ error: 'Ticket pas encore généré' })
+    res.json(rows[0])
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST /api/tickets/create
 // Appelé par le webhook après paiement confirmé
 router.post('/create', async (req, res, next) => {
@@ -23,7 +39,6 @@ router.post('/create', async (req, res, next) => {
   if (!order_id) return res.status(400).json({ error: 'order_id requis' })
 
   try {
-    // Vérifier que la commande est bien payée
     const { rows } = await pool.query(
       'SELECT * FROM orders WHERE id = $1 AND status = $2',
       [order_id, 'paid']
@@ -56,23 +71,6 @@ router.post('/create', async (req, res, next) => {
   }
 })
 
-// GET /api/tickets/:code — Récupérer un ticket par son code
-router.get('/:code', async (req, res, next) => {
-  try {
-    const { rows } = await pool.query(
-      `SELECT t.*, o.fname, o.lname, o.email, o.pm, o.amount
-       FROM tickets t
-       JOIN orders o ON o.id = t.order_id
-       WHERE t.code = $1`,
-      [req.params.code]
-    )
-    if (!rows.length) return res.status(404).json({ error: 'Ticket introuvable' })
-    res.json(rows[0])
-  } catch (err) {
-    next(err)
-  }
-})
-
 // POST /api/tickets/verify — Scanner QR à l'entrée
 router.post('/verify', async (req, res, next) => {
   const { qr_data } = req.body
@@ -100,17 +98,17 @@ router.post('/verify', async (req, res, next) => {
   }
 })
 
-// GET /api/tickets/by-order/:order_id
-router.get('/by-order/:order_id', async (req, res, next) => {
+// GET /api/tickets/:code — ✅ EN DERNIER car matche tout
+router.get('/:code', async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT t.*, o.fname, o.lname, o.email, o.pm, o.amount
        FROM tickets t
        JOIN orders o ON o.id = t.order_id
-       WHERE t.order_id = $1`,
-      [req.params.order_id]
+       WHERE t.code = $1`,
+      [req.params.code]
     )
-    if (!rows.length) return res.status(404).json({ error: 'Ticket pas encore généré' })
+    if (!rows.length) return res.status(404).json({ error: 'Ticket introuvable' })
     res.json(rows[0])
   } catch (err) {
     next(err)
