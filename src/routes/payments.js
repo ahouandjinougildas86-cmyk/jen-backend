@@ -38,33 +38,37 @@ router.post('/init', async (req, res) => {
       [order.id, pm]
     )
 
+    const frontendUrl = process.env.FRONTEND_URL || 'https://jen-five.vercel.app'
+
     const transaction = await Transaction.create({
       description: `Billet JEN - ${fname} ${lname}`,
       amount: amount || 3000,
       currency: { iso: 'XOF' },
+      callback_url: `${frontendUrl}?status=approved&order_id=${order.id}`,
+      cancel_url:   `${frontendUrl}?status=cancelled`,
+      custom_metadata: { order_id: order.id },
       customer: {
         firstname: fname,
-        lastname: lname,
-        email: email,
+        lastname:  lname,
+        email:     email,
         phone_number: { number: phone, country: 'BJ' }
-      },
-      custom_metadata: { order_id: order.id }
+      }
     })
 
     const token = await transaction.generateToken()
 
     res.status(201).json({
-      order_id: order.id,
+      order_id:    order.id,
       payment_url: token.url,
-      token: token.token
+      token:       token.token
     })
   } catch (err) {
     res.status(500).json({
-      error: 'Erreur serveur',
-      message: err?.message,
-      status: err?.status,
-      errors: err?.errors,
-      httpStatus: err?.httpStatus,
+      error:        'Erreur serveur',
+      message:      err?.message,
+      status:       err?.status,
+      errors:       err?.errors,
+      httpStatus:   err?.httpStatus,
       errorMessage: err?.errorMessage
     })
   }
@@ -75,9 +79,13 @@ router.post('/webhook', async (req, res, next) => {
   try {
     const event = req.body
 
+    console.log('Webhook reçu:', JSON.stringify(event?.name))
+
     if (event.name === 'transaction.approved') {
       const ref      = event.data?.transaction?.id?.toString()
       const order_id = event.data?.transaction?.custom_metadata?.order_id
+
+      console.log('Webhook approved — order_id:', order_id)
 
       if (!order_id) {
         console.error('Webhook: order_id manquant dans custom_metadata')
@@ -98,7 +106,7 @@ router.post('/webhook', async (req, res, next) => {
         [order_id]
       )
 
-      // Créer le ticket directement en base (sans appel HTTP interne)
+      // Créer le ticket directement en base
       const existing = await pool.query(
         'SELECT id FROM tickets WHERE order_id = $1',
         [order_id]
@@ -122,7 +130,7 @@ router.post('/webhook', async (req, res, next) => {
             [order_id, code, seat, qr_data]
           )
 
-          console.log(`Ticket créé: ${code} — commande ${order_id}`)
+          console.log(`Ticket créé: ${code} — siège ${seat} — commande ${order_id}`)
         }
       }
     }
