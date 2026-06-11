@@ -6,7 +6,6 @@ const { FedaPay, Transaction } = require('fedapay')
 FedaPay.setApiKey(process.env.FEDAPAY_SECRET_KEY)
 FedaPay.setEnvironment(process.env.FEDAPAY_ENV || 'sandbox')
 
-// Fonctions utilitaires
 function genCode() {
   return 'JEN-' + Math.random().toString(36).substring(2, 8).toUpperCase()
 }
@@ -45,12 +44,12 @@ router.post('/init', async (req, res) => {
       amount: amount || 3000,
       currency: { iso: 'XOF' },
       callback_url: `${frontendUrl}?status=approved&order_id=${order.id}`,
-      cancel_url: `${frontendUrl}?status=cancelled`,
+      cancel_url:   `${frontendUrl}?status=cancelled`,
       custom_metadata: { order_id: order.id },
       customer: {
         firstname: fname,
-        lastname: lname,
-        email: email,
+        lastname:  lname,
+        email:     email,
         phone_number: { number: phone, country: 'BJ' }
       }
     })
@@ -58,17 +57,17 @@ router.post('/init', async (req, res) => {
     const token = await transaction.generateToken()
 
     res.status(201).json({
-      order_id: order.id,
+      order_id:    order.id,
       payment_url: token.url,
-      token: token.token
+      token:       token.token
     })
   } catch (err) {
     res.status(500).json({
-      error: 'Erreur serveur',
-      message: err?.message,
-      status: err?.status,
-      errors: err?.errors,
-      httpStatus: err?.httpStatus,
+      error:        'Erreur serveur',
+      message:      err?.message,
+      status:       err?.status,
+      errors:       err?.errors,
+      httpStatus:   err?.httpStatus,
       errorMessage: err?.errorMessage
     })
   }
@@ -77,18 +76,20 @@ router.post('/init', async (req, res) => {
 // POST /api/payments/webhook
 router.post('/webhook', async (req, res, next) => {
   try {
+    // Log brut complet pour voir la structure FedaPay
+    console.log('Body brut:', JSON.stringify(req.body))
+    console.log('Headers:', JSON.stringify(req.headers))
+
     const event = req.body
 
-    console.log('Webhook reçu:', JSON.stringify(event?.name))
+    console.log('Webhook reçu:', event?.name)
 
     if (event.name === 'transaction.approved') {
-      const ref = event.data?.transaction?.id?.toString()
+      const ref         = event.data?.transaction?.id?.toString()
       const transaction = event.data?.transaction
 
-      // Log complet pour voir la structure exacte
       console.log('Transaction complète:', JSON.stringify(transaction))
 
-      // FedaPay peut retourner custom_metadata sous différentes formes
       const order_id =
         transaction?.custom_metadata?.order_id ||
         transaction?.metadata?.order_id ||
@@ -98,26 +99,23 @@ router.post('/webhook', async (req, res, next) => {
       console.log('Webhook approved — order_id:', order_id)
 
       if (!order_id) {
-        console.error('Webhook: order_id manquant dans custom_metadata')
-        console.error('Structure reçue:', JSON.stringify(event.data))
+        console.error('Webhook: order_id manquant')
+        console.error('event.data:', JSON.stringify(event.data))
         return res.json({ received: true })
       }
 
-      // Mettre à jour la transaction
       await pool.query(
         `UPDATE transactions
-     SET status = 'paid', provider_ref = $1, raw_response = $2, updated_at = NOW()
-     WHERE order_id = $3`,
+         SET status = 'paid', provider_ref = $1, raw_response = $2, updated_at = NOW()
+         WHERE order_id = $3`,
         [ref, JSON.stringify(event), order_id]
       )
 
-      // Mettre à jour la commande
       await pool.query(
         "UPDATE orders SET status = 'paid' WHERE id = $1",
         [order_id]
       )
 
-      // Créer le ticket directement en base
       const existing = await pool.query(
         'SELECT id FROM tickets WHERE order_id = $1',
         [order_id]
@@ -130,14 +128,14 @@ router.post('/webhook', async (req, res, next) => {
         )
 
         if (orderResult.rows.length) {
-          const order = orderResult.rows[0]
-          const code = genCode()
-          const seat = genSeat()
+          const order   = orderResult.rows[0]
+          const code    = genCode()
+          const seat    = genSeat()
           const qr_data = `${code}|${seat}|${order.email}`
 
           await pool.query(
             `INSERT INTO tickets (order_id, code, seat, qr_data)
-         VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)`,
             [order_id, code, seat, qr_data]
           )
 
