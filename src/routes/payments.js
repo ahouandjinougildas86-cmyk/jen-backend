@@ -44,12 +44,12 @@ router.post('/init', async (req, res) => {
       amount: amount || 3000,
       currency: { iso: 'XOF' },
       callback_url: `${frontendUrl}?status=approved&order_id=${order.id}`,
-      cancel_url:   `${frontendUrl}?status=cancelled`,
+      cancel_url: `${frontendUrl}?status=cancelled`,
       custom_metadata: { order_id: order.id },
       customer: {
         firstname: fname,
-        lastname:  lname,
-        email:     email,
+        lastname: lname,
+        email: email,
         phone_number: { number: phone, country: 'BJ' }
       }
     })
@@ -57,17 +57,17 @@ router.post('/init', async (req, res) => {
     const token = await transaction.generateToken()
 
     res.status(201).json({
-      order_id:    order.id,
+      order_id: order.id,
       payment_url: token.url,
-      token:       token.token
+      token: token.token
     })
   } catch (err) {
     res.status(500).json({
-      error:        'Erreur serveur',
-      message:      err?.message,
-      status:       err?.status,
-      errors:       err?.errors,
-      httpStatus:   err?.httpStatus,
+      error: 'Erreur serveur',
+      message: err?.message,
+      status: err?.status,
+      errors: err?.errors,
+      httpStatus: err?.httpStatus,
       errorMessage: err?.errorMessage
     })
   }
@@ -85,29 +85,21 @@ router.post('/webhook', async (req, res, next) => {
     console.log('Webhook reçu:', event?.name)
 
     if (event.name === 'transaction.approved') {
-      const ref         = event.data?.transaction?.id?.toString()
-      const transaction = event.data?.transaction
-
-      console.log('Transaction complète:', JSON.stringify(transaction))
-
-      const order_id =
-        transaction?.custom_metadata?.order_id ||
-        transaction?.metadata?.order_id ||
-        transaction?.order_id ||
-        null
+      const transaction = event.entity
+      const ref = transaction?.id?.toString()
+      const order_id = transaction?.custom_metadata?.order_id || null
 
       console.log('Webhook approved — order_id:', order_id)
 
       if (!order_id) {
         console.error('Webhook: order_id manquant')
-        console.error('event.data:', JSON.stringify(event.data))
         return res.json({ received: true })
       }
 
       await pool.query(
         `UPDATE transactions
-         SET status = 'paid', provider_ref = $1, raw_response = $2, updated_at = NOW()
-         WHERE order_id = $3`,
+     SET status = 'paid', provider_ref = $1, raw_response = $2, updated_at = NOW()
+     WHERE order_id = $3`,
         [ref, JSON.stringify(event), order_id]
       )
 
@@ -128,14 +120,14 @@ router.post('/webhook', async (req, res, next) => {
         )
 
         if (orderResult.rows.length) {
-          const order   = orderResult.rows[0]
-          const code    = genCode()
-          const seat    = genSeat()
+          const order = orderResult.rows[0]
+          const code = genCode()
+          const seat = genSeat()
           const qr_data = `${code}|${seat}|${order.email}`
 
           await pool.query(
             `INSERT INTO tickets (order_id, code, seat, qr_data)
-             VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)`,
             [order_id, code, seat, qr_data]
           )
 
